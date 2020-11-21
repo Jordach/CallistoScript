@@ -1,0 +1,44 @@
+l test = true
+l test2 = false ## Test comment
+
+if test == test2
+	print("true")
+eif test != test2 and test2 ~= test
+	print("false")
+	if a != b
+		print("false")
+	eif c == b
+		print("true")
+	else
+		print("failed")
+	end
+end
+
+if not test
+	print("false")
+end
+
+l func test_function(arg)
+	ret arg
+end
+
+print(test_function("function call"))
+
+l while_test = 1
+while while_test < 2
+	print(while_test)
+	while_test++
+end
+
+for i=1, 2
+	print(i)
+end
+
+l loop_test = 3
+loop
+	print(loop_test)
+	loop_test--
+	l bonus = loop_test
+until loop_test == 2
+
+## Comment lines are automatically ignored
