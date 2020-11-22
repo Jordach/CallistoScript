@@ -3,6 +3,7 @@ l test2 = false ## Test comment
 
 if test == test2
 	print("true")
+## Mixed case of regular lua comparators, and Callisto Script comparators
 eif test != test2 and test2 ~= test
 	print("false")
 	if a != b
@@ -27,6 +28,8 @@ print(test_function("function call"))
 l while_test = 1
 while while_test < 2
 	print(while_test)
+	local testtable = {}
+	testtable[long_boi_test_here++] = true
 	while_test++
 end
 
@@ -35,8 +38,9 @@ for i=1, 2
 end
 
 l loop_test = 3
-loop
-	print(loop_test)
+repeat
+	print(loop_test--)
+	l testtab = {loop_test--}
 	loop_test--
 	l bonus = loop_test
 until loop_test == 2

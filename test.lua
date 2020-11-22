@@ -3,11 +3,12 @@ local test2 = false -- Test comment
 
 if test == test2 then
 	print("true")
-eif test ~= test2 and test2 ~= test then
+-- Mixed case of regular lua comparators, and Callisto Script comparators
+elseif test ~= test2 and test2 ~= test  then
 	print("false")
 	if a ~= b then
 		print("false")
-	eif c == b then
+	elseif c == b then
 		print("true")
 	else
 		print("failed")
@@ -18,27 +19,30 @@ if not test then
 	print("false")
 end
 
-local func test_function(arg)
-	ret arg
+local function test_function(arg)
+	return arg
 end
 
 print(test_function("function call"))
 
-local while_test = 1 do
+local while_test = 1
 while while_test < 2 do
-	print(while_test) do
-	while_test++ do
+	print(while_test)
+	local testtable = {}
+	testtable[long_boi_test_here = long_boi_test_here + 1] = true
+	while_test = while_test + 1
 end
 
 for i=1, 2 do
 	print(i)
 end
 
-local repeat_test = 3
+local loop_test = 3
 repeat
-	print(repeat_test)
-	repeat_test--
-	local bonus = repeat_test
-until repeat_test == 2
+	print(loop_test = loop_test - 1)
+	local testtab = {loop_test = loop_test - 1}
+	loop_test = loop_test - 1
+	local bonus = loop_test
+until loop_test == 2
 
 -- Comment lines are automatically ignored

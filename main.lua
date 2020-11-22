@@ -17,7 +17,7 @@ l (regex's to local) /
 nil
 not
 or
-loop (regex's to repeat)
+repeat
 ret (regex's to return)
 until
 while
@@ -48,7 +48,7 @@ List of valid tokens:
 :
 ,
 .
-.. / <<
+..
 ...
 
 List of numeric variable specific options:
@@ -66,7 +66,6 @@ local function print_file(filename)
 	local file = ""
 	for k,v in pairs(result) do
 		file = file .. v .. "\n"
-		print(k, v)
 	end
 	os.remove(filename..".lua")
 	local output = io.open(filename..".lua", "w+")
@@ -100,24 +99,39 @@ local function keyword_regex(ln)
 	if file_contents[ln]:find("!=") then
 		file_contents[ln] = string.gsub(file_contents[ln], "!=", "~=")
 	end
-	if file_contents[ln]:find("<<") then
-		file_contents[ln] = string.gsub(file_contents[ln], "<<", "..")
-	end
 	-- Also handle inline code with comments at the end of a line
 	if file_contents[ln]:find("##") then
 		file_contents[ln] = string.gsub(file_contents[ln], "##", "--", 1)
+	end
+
+	if file_contents[ln]:find("++") then
+		local var_name = string.match(file_contents[ln], "[%w?_?]+%w*+++")
+		if var_name ~= nil then
+			-- Remove the ++ or -- from the ends
+			local len = var_name:len() - 2
+			local shortform = var_name:sub(1, len)
+			file_contents[ln] = string.gsub(file_contents[ln], var_name.."+", shortform .. " = " .. shortform .. " + 1")
+		end
+	end
+	if file_contents[ln]:find("[%-%-]") then
+		local var_name = string.match(file_contents[ln], "[%w?_?]+%w*%-%-")
+		if var_name ~= nil then
+			-- Remove the ++ or -- from the ends
+			local len = var_name:len() - 2
+			local shortform = var_name:sub(1, len)
+			file_contents[ln] = string.gsub(file_contents[ln], var_name.."%-", shortform .. " = " .. shortform .. " - 1")
+		end
 	end
 
 	-- Blocking single line operators:
 	-- if, elseif, for, while, loop/repeat, return (as return can only be on it's own line)
 
 	-- Append then to if, elseif statements
-	if file_contents[ln]:find("if ") then
-		result[ln] = file_contents[ln] .. " then"
-		return
-	end
 	if file_contents[ln]:find("eif ") then
 		result[ln] = string.gsub(file_contents[ln], "eif ", "elseif ") .. " then"
+		return
+	elseif file_contents[ln]:find("if ") then
+		result[ln] = file_contents[ln] .. " then"
 		return
 	end
 
@@ -130,13 +144,13 @@ local function keyword_regex(ln)
 		result[ln] = file_contents[ln] .. " do"
 		return
 	end
-	if file_contents[ln]:find("loop ") then
-		result[ln] = string.gsub(file_contents[ln], "loop ", "repeat ", 1)
+	if file_contents[ln]:find("func ") then
+		result[ln] = string.gsub(file_contents[ln], "func ", "function ", 1)
 		return
 	end
-
 	if file_contents[ln]:find("ret ") then
-		result[ln] = string.gsub(file_contents[ln], "ret", "return ", 1)
+		result[ln] = string.gsub(file_contents[ln], "ret ", "return ", 1)
+		return
 	end
 
 	result[ln] = file_contents[ln]
@@ -150,7 +164,7 @@ local function transpile_it(filename)
 end
 
 local function file_load(filename)
-	for line in io.lines(filename..".jds") do
+	for line in io.lines(filename..".cos") do
 		file_contents[#file_contents+1] = line
 	end
 	transpile_it(filename)
@@ -164,7 +178,7 @@ end
 local function mt_file_load(filename)
 	if minetest ~= nil then
 		local current_path = minetest.get_modpath(modname)
-		for line in io.lines(current_path..filename..".jds") do
+		for line in io.lines(current_path..filename..".cos") do
 			file_contents[#file_contents+1] = line
 		end
 		transpile_it(filename)
@@ -173,9 +187,9 @@ local function mt_file_load(filename)
 	end
 end
 
---print("enter the filename of the .jds you want to process")
+--print("enter the filename of the .cos you want to process")
 --file_load(io.read())
 file_load("test")
-print("worked")
+
 -- Execute tests
 -- dofile("test.lua")
