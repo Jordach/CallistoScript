@@ -1,19 +1,28 @@
-l test = true
-l test2 = false ##[[ Testing
+let test = true
+let test2 = false ##[[ Testing
 spooky
 multiline
 comments
 ]]##
 
-l mline_string = [=[Spooky scary
+let mline_string = [=[Spooky scary
 multilines, giving such a scream]=]
 
+let mline_single_line = [[reeee]]
+
+{={
+	if true then
+		print("embedded lua in callisto?")
+	end
+}=}
+
+## {={ print("illegal operation") }=}
 if test == test2
 	print("true")
 ## Mixed case of regular lua comparators, and Callisto Script comparators
 eif test != test2 and test2 ~= test
 	print("false")
-	if a != b
+	if a != b then
 		print("false")
 	eif c == b
 		print("true")
@@ -26,13 +35,13 @@ if not test
 	print("false")
 end
 
-l func test_function(arg)
+let func test_function(arg)
 	ret arg
 end
 
 print(test_function("function call"))
 
-l while_test = 1
+let while_test = 1
 while while_test < 2
 	print(while_test)
 	local testtable = {}
@@ -40,16 +49,29 @@ while while_test < 2
 	while_test++;
 end
 
+## We now support multiline if and else if statements:
+_if test_var
+		!=
+			test_var2
+				then
+				print("what a meme")
+_eif test_var
+		==
+			test_var3
+				then
+				print("this just works")
+end
+
 for i=1, 2
 	print(i)
 end
 
-l loop_test = 3
+let loop_test = 3
 repeat
 	print(loop_test--;)
-	l testtab = {loop_test--;}
+	let testtab = {loop_test--;}
 	loop_test--;
-	l bonus = loop_test
+	let bonus = loop_test
 until loop_test == 2
 
 print("this is a string++!")

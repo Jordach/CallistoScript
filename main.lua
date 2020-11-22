@@ -56,6 +56,16 @@ List of numeric variable specific options:
 var++;
 var--;
 
+Embedding Lua code example:
+
+{={
+	if true then
+		return false
+	elseif false then
+		return true
+	end
+}=}
+
 ## Comments look like this. Multilines aren't going to be supported.
 ]]--
 
@@ -64,6 +74,12 @@ local enable_short_hand_incrementals = true
 
 -- Multiline detection:
 local multiline_detected = false
+
+-- Embedded lua detection:
+local lua_embbedded = false
+
+-- File extension
+local extension = ".cos"
 
 local file_contents = {}
 local result = {}
@@ -79,28 +95,28 @@ local function print_file(filename)
 	output:close()
 end
 
-local function keyword_regex(ln)
+local function keyword_regex(ln, filename)
 	local found_multiline_start = false
 	-- Check for presence of multiline comments or strings:
 	if not multiline_detected then
 		if file_contents[ln]:find("[%[][%=-][%[]") then -- should match [[ [=[ [==[ ...
 			multiline_detected = true
 			found_multiline_start = true
-			print("[Notice-Callisto]: Multiline string/comment starting at line "..ln..".")
+			print("[Notice-Callisto]: Multiline string/comment starting at line "..ln.." in file: "..filename..extension)
 		elseif file_contents[ln]:find("[%[][%[]") then
 			multiline_detected = true
 			found_multiline_start = true
-			print("[Notice-Callisto]: Multiline string/comment starting at line "..ln..".")
+			print("[Notice-Callisto]: Multiline string/comment starting at line "..ln.." in file: "..filename..extension)
 		end
 	end
 
-	--Check for multiline comments or strings (in case they end early and the software locks)
+	-- Check for multiline comments or strings (in case they end early and the software locks)
 	-- Don't process any keywords. IF the start of the multiline is on the same as the end, process as normal
 	-- otherwise, prevent processing of keywords.
 	if multiline_detected then
 		if file_contents[ln]:find("[%]][%=-][%]]") then
 			multiline_detected = false
-			print("[Notice-Callisto]: Multiline string/comment ended at line "..ln..".")
+			print("[Notice-Callisto]: Multiline string/comment ended at line "..ln.." in file: "..filename..extension)
 			if file_contents[ln]:find("##") then
 				file_contents[ln] = string.gsub(file_contents[ln], "##", "--", 1)
 			end
@@ -110,7 +126,7 @@ local function keyword_regex(ln)
 			end
 		elseif file_contents[ln]:find("[%]][%]]") then
 			multiline_detected = false
-			print("[Notice-Callisto]: Multiline string/comment ended at line "..ln..".")
+			print("[Notice-Callisto]: Multiline string/comment ended at line "..ln.." in file: "..filename..extension)
 			if file_contents[ln]:find("##") then
 				file_contents[ln] = string.gsub(file_contents[ln], "##", "--", 1)
 			end
@@ -134,20 +150,45 @@ local function keyword_regex(ln)
 		result[ln] = string.gsub(file_contents[ln], "##", "--", 1)
 		return
 	end
+
+	-- Handle embedded Lua code:
+	if not lua_embedded then
+		if file_contents[ln]:find("[${][$=][${]") then
+			if file_contents[ln]:find("[$}][$=][$}]") then
+				error("[Error-Callisto]: Single line Lua embeds are not supported at line "..ln.." in file: "..filename..extension)
+			end
+			lua_embedded = true
+			result[ln] = "-- [Callisto]: Embedded Lua block starts below."
+			print("[Notice-Callisto]: Embedded Lua block starts at line "..ln.." in file: "..filename..extension)
+			return
+		end
+	end
+
+	if lua_embedded then
+		if file_contents[ln]:find("[$}][$=][$}]") then
+			lua_embedded = false
+			result[ln] = "-- [Callisto]: Embedded Lua block ends."
+			print("[Notice-Callisto]: Embedded Lua block ends at line "..ln.." in file: "..filename..extension)
+			return
+		else
+			result[ln] = file_contents[ln]
+			return
+		end
+	end
 	
 	-- Non blocking per line operations:
 
-	-- l to local conversion
-	local char_a, char_b = file_contents[ln]:find("l ") 
+	-- let to local conversion
+	local char_a, char_b = file_contents[ln]:find("let ") 
 	if char_a == 1 then
-		file_contents[ln] = string.gsub(file_contents[ln], "l ", "local ", 1)
+		file_contents[ln] = string.gsub(file_contents[ln], "let ", "local ", 1)
 	else
 		-- Lua converts tabs to spaces (4 spaces per tab).
 		-- So no need to be totally concerned about this strange local search.
-		if file_contents[ln]:find(" l ") then
-			file_contents[ln] = string.gsub(file_contents[ln], "l ", "local ", 1)
-		elseif file_contents[ln]:find("\tl ") then
-			file_contents[ln] = string.gsub(file_contents[ln], "l ", "local ", 1)
+		if file_contents[ln]:find(" let ") then
+			file_contents[ln] = string.gsub(file_contents[ln], "let ", "local ", 1)
+		elseif file_contents[ln]:find("\tlet ") then
+			file_contents[ln] = string.gsub(file_contents[ln], "let ", "local ", 1)
 		end
 	end
 	-- Handle things like !=, ++ and --, function, 
@@ -159,49 +200,62 @@ local function keyword_regex(ln)
 		file_contents[ln] = string.gsub(file_contents[ln], "##", "--", 1)
 	end
 
-	if file_contents[ln]:find("[++;]") then
-		if not enable_short_hand_incrementals then error("C++ style increments disabled for safety purposes.") end
+	if file_contents[ln]:find("++[%;]") then
+		if not enable_short_hand_incrementals then error("[Error-Callisto]: C++ style increments disabled at "..ln.." in file: "..filename..extension) end
 		local var_name = string.match(file_contents[ln], "[%w?_?]+%w*+++")
 		if var_name ~= nil then
 			-- Remove the ++ or -- from the ends (this works better than pattern matching)
-			local len = var_name:len() - 3
+			local len = var_name:len() - 2
 			local shortform = var_name:sub(1, len)
 			file_contents[ln] = string.gsub(file_contents[ln], var_name.."%+%;", shortform .. " = " .. shortform .. " + 1")
+			print("[Warning-Callisto]: Incrementor statement used at line "..ln.." in file: "..filename..extension)
 		end
 	end
-	if file_contents[ln]:find("[%-%-%;]") then
-		if not enable_short_hand_incrementals then error("C++ style increments disabled for safety purposes.") end
-		local var_name = string.match(file_contents[ln], "[%w?_?]+%w*%-%-%;")
+	if file_contents[ln]:find("[%-%-][%;]") then
+		if not enable_short_hand_incrementals then error("[Error-Callisto]: C++ style decrements disabled at"..ln.." in file: "..filename..extension) end
+		local var_name = string.match(file_contents[ln], "[%w?_?]+%w*[%-][%-][%;]")
 		if var_name ~= nil then
 			-- Remove the ++ or -- from the ends (this works better than pattern matching)
 			local len = var_name:len() - 3
 			local shortform = var_name:sub(1, len)
-			file_contents[ln] = string.gsub(file_contents[ln], var_name.."%-%;", shortform .. " = " .. shortform .. " - 1")
+			file_contents[ln] = string.gsub(file_contents[ln], var_name, shortform .. " = " .. shortform .. " - 1")
+			print("[Warning-Callisto]: Decrementor statement used at line "..ln.." in file: "..filename..extension)
 		end
 	end
 
 	-- Blocking single line operators:
 	-- if, elseif, for, while, return (as return can only be on it's own line)
 
+	-- Special formatting friendly if/elseif statements:
+	if file_contents[ln]:find("[%_]eif ") then
+		result[ln] = string.gsub(file_contents[ln], "[%_]eif ", "elseif ", 1)
+		print("[Warning-Callisto]: Custom formatted elseif statement at line " ..ln.." in file: "..filename..extension)
+		return
+	elseif file_contents[ln]:find("[%_]if ") then
+		result[ln] = string.gsub(file_contents[ln], "[%_]if ", "if ", 1)
+		print("[Warning-Callisto]: Custom formatted if statement at line " ..ln.." in file: "..filename..extension)
+		return
 	-- Append then to if, elseif statements
-	if file_contents[ln]:find("eif ") then
-		result[ln] = string.gsub(file_contents[ln], "eif ", "elseif ") .. " then"
-		return
+	elseif file_contents[ln]:find("eif ") then
+		if file_contents[ln]:find(" then") then
+			print ("[Notice-Callisto]: \"then\" Lua keyword found at line "..ln.." in file: "..filename..extension)
+			result[ln] = file_contents[ln]
+			return
+		else
+			result[ln] = string.gsub(file_contents[ln], "eif ", "elseif ", 1) .. " then"
+			return
+		end
 	elseif file_contents[ln]:find("if ") then
-		result[ln] = file_contents[ln] .. " then"
-		return
+		if file_contents[ln]:find(" then") then
+			print ("[Notice-Callisto]: \"then\" Lua keyword found at line "..ln.." in file: "..filename..extension)
+			result[ln] = file_contents[ln]
+			return
+		else
+			result[ln] = file_contents[ln] .. " then"
+			return
+		end
 	end
 
-	-- Special formatting friendly if/elseif statements:
-	if file_contents[ln]:find("_eif ") then
-		result[ln] = string.gsub(file_contents[ln], "_eif ", "elseif ")
-		print("[Warning-Callisto]: Custom formatting elseif invoked at line " ..ln.. ".")
-		return
-	elseif file_contents[ln]:find("_if ") then
-		result[ln] = string.gsub(file_contents[ln], "_eif ", "elseif ")
-		print("[Warning-Callisto]: Custom formatting if invoked at line " ..ln.. ".")
-		return
-	end
 
 	-- Append do to for, while
 	if file_contents[ln]:find("for ") then
@@ -226,13 +280,13 @@ end
 
 local function transpile_it(filename)
 	for ln=1, #file_contents do
-		keyword_regex(ln)
+		keyword_regex(ln, filename)
 	end
 	print_file(filename)
 end
 
 local function file_load(filename)
-	for line in io.lines(filename..".cos") do
+	for line in io.lines(filename..extension) do
 		file_contents[#file_contents+1] = line
 	end
 	transpile_it(filename)
@@ -246,7 +300,7 @@ end
 local function mt_file_load(filename)
 	if minetest ~= nil then
 		local current_path = minetest.get_modpath(modname)
-		for line in io.lines(current_path..filename..".cos") do
+		for line in io.lines(current_path..filename..extension) do
 			file_contents[#file_contents+1] = line
 		end
 		transpile_it(filename)
