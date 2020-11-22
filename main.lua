@@ -53,11 +53,17 @@ List of valid tokens:
 
 List of numeric variable specific options:
 
-var ++
-var --
+var++;
+var--;
 
 ## Comments look like this. Multilines aren't going to be supported.
 ]]--
+
+-- Flip to true to enable party mode
+local enable_short_hand_incrementals = true
+
+-- Multiline detection:
+local multiline_detected = false
 
 local file_contents = {}
 local result = {}
@@ -74,6 +80,55 @@ local function print_file(filename)
 end
 
 local function keyword_regex(ln)
+	local found_multiline_start = false
+	-- Check for presence of multiline comments or strings:
+	if not multiline_detected then
+		if file_contents[ln]:find("[%[][%=-][%[]") then -- should match [[ [=[ [==[ ...
+			multiline_detected = true
+			found_multiline_start = true
+			print("[Notice-Callisto]: Multiline string/comment starting at line "..ln..".")
+		elseif file_contents[ln]:find("[%[][%[]") then
+			multiline_detected = true
+			found_multiline_start = true
+			print("[Notice-Callisto]: Multiline string/comment starting at line "..ln..".")
+		end
+	end
+
+	--Check for multiline comments or strings (in case they end early and the software locks)
+	-- Don't process any keywords. IF the start of the multiline is on the same as the end, process as normal
+	-- otherwise, prevent processing of keywords.
+	if multiline_detected then
+		if file_contents[ln]:find("[%]][%=-][%]]") then
+			multiline_detected = false
+			print("[Notice-Callisto]: Multiline string/comment ended at line "..ln..".")
+			if file_contents[ln]:find("##") then
+				file_contents[ln] = string.gsub(file_contents[ln], "##", "--", 1)
+			end
+			if not found_multiline_start then
+				result[ln] = file_contents[ln]
+				return
+			end
+		elseif file_contents[ln]:find("[%]][%]]") then
+			multiline_detected = false
+			print("[Notice-Callisto]: Multiline string/comment ended at line "..ln..".")
+			if file_contents[ln]:find("##") then
+				file_contents[ln] = string.gsub(file_contents[ln], "##", "--", 1)
+			end
+			if not found_multiline_start then
+				result[ln] = file_contents[ln]
+				return
+			end
+		else
+			if file_contents[ln]:find("##") then
+				file_contents[ln] = string.gsub(file_contents[ln], "##", "--", 1)
+			end
+			if not found_multiline_start then
+				result[ln] = file_contents[ln]
+				return
+			end
+		end
+	end
+
 	-- Abort processing on commented out lines
 	if file_contents[ln]:sub(1,2):find("##") then
 		result[ln] = string.gsub(file_contents[ln], "##", "--", 1)
@@ -95,7 +150,7 @@ local function keyword_regex(ln)
 			file_contents[ln] = string.gsub(file_contents[ln], "l ", "local ", 1)
 		end
 	end
-	-- Handle things like !=, ++ and --, <<, function, 
+	-- Handle things like !=, ++ and --, function, 
 	if file_contents[ln]:find("!=") then
 		file_contents[ln] = string.gsub(file_contents[ln], "!=", "~=")
 	end
@@ -104,27 +159,29 @@ local function keyword_regex(ln)
 		file_contents[ln] = string.gsub(file_contents[ln], "##", "--", 1)
 	end
 
-	if file_contents[ln]:find("++") then
+	if file_contents[ln]:find("[++;]") then
+		if not enable_short_hand_incrementals then error("C++ style increments disabled for safety purposes.") end
 		local var_name = string.match(file_contents[ln], "[%w?_?]+%w*+++")
 		if var_name ~= nil then
-			-- Remove the ++ or -- from the ends
-			local len = var_name:len() - 2
+			-- Remove the ++ or -- from the ends (this works better than pattern matching)
+			local len = var_name:len() - 3
 			local shortform = var_name:sub(1, len)
-			file_contents[ln] = string.gsub(file_contents[ln], var_name.."+", shortform .. " = " .. shortform .. " + 1")
+			file_contents[ln] = string.gsub(file_contents[ln], var_name.."%+%;", shortform .. " = " .. shortform .. " + 1")
 		end
 	end
-	if file_contents[ln]:find("[%-%-]") then
-		local var_name = string.match(file_contents[ln], "[%w?_?]+%w*%-%-")
+	if file_contents[ln]:find("[%-%-%;]") then
+		if not enable_short_hand_incrementals then error("C++ style increments disabled for safety purposes.") end
+		local var_name = string.match(file_contents[ln], "[%w?_?]+%w*%-%-%;")
 		if var_name ~= nil then
-			-- Remove the ++ or -- from the ends
-			local len = var_name:len() - 2
+			-- Remove the ++ or -- from the ends (this works better than pattern matching)
+			local len = var_name:len() - 3
 			local shortform = var_name:sub(1, len)
-			file_contents[ln] = string.gsub(file_contents[ln], var_name.."%-", shortform .. " = " .. shortform .. " - 1")
+			file_contents[ln] = string.gsub(file_contents[ln], var_name.."%-%;", shortform .. " = " .. shortform .. " - 1")
 		end
 	end
 
 	-- Blocking single line operators:
-	-- if, elseif, for, while, loop/repeat, return (as return can only be on it's own line)
+	-- if, elseif, for, while, return (as return can only be on it's own line)
 
 	-- Append then to if, elseif statements
 	if file_contents[ln]:find("eif ") then
@@ -132,6 +189,17 @@ local function keyword_regex(ln)
 		return
 	elseif file_contents[ln]:find("if ") then
 		result[ln] = file_contents[ln] .. " then"
+		return
+	end
+
+	-- Special formatting friendly if/elseif statements:
+	if file_contents[ln]:find("_eif ") then
+		result[ln] = string.gsub(file_contents[ln], "_eif ", "elseif ")
+		print("[Warning-Callisto]: Custom formatting elseif invoked at line " ..ln.. ".")
+		return
+	elseif file_contents[ln]:find("_if ") then
+		result[ln] = string.gsub(file_contents[ln], "_eif ", "elseif ")
+		print("[Warning-Callisto]: Custom formatting if invoked at line " ..ln.. ".")
 		return
 	end
 

@@ -1,5 +1,12 @@
 l test = true
-l test2 = false ## Test comment
+l test2 = false ##[[ Testing
+spooky
+multiline
+comments
+]]##
+
+l mline_string = [=[Spooky scary
+multilines, giving such a scream]=]
 
 if test == test2
 	print("true")
@@ -29,8 +36,8 @@ l while_test = 1
 while while_test < 2
 	print(while_test)
 	local testtable = {}
-	testtable[long_boi_test_here++] = true
-	while_test++
+	testtable[long_boi_test_here++;] = true
+	while_test++;
 end
 
 for i=1, 2
@@ -39,10 +46,12 @@ end
 
 l loop_test = 3
 repeat
-	print(loop_test--)
-	l testtab = {loop_test--}
-	loop_test--
+	print(loop_test--;)
+	l testtab = {loop_test--;}
+	loop_test--;
 	l bonus = loop_test
 until loop_test == 2
+
+print("this is a string++!")
 
 ## Comment lines are automatically ignored
