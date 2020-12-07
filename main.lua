@@ -182,9 +182,7 @@ local function keyword_regex(ln, filename)
 	local char_a, char_b = file_contents[ln]:find("let ") 
 	if char_a == 1 then
 		file_contents[ln] = string.gsub(file_contents[ln], "let ", "local ", 1)
-	else
-		-- Lua converts tabs to spaces (4 spaces per tab).
-		-- So no need to be totally concerned about this strange local search.
+	else -- Apparently tabs are a control sequence character
 		if file_contents[ln]:find(" let ") then
 			file_contents[ln] = string.gsub(file_contents[ln], "let ", "local ", 1)
 		elseif file_contents[ln]:find("\tlet ") then

@@ -16,7 +16,7 @@ let mline_single_line = [[reeee]]
 	end
 }=}
 
-## {={ print("illegal operation") }=}
+## {={ print("illegal operation; will instead cause a transpilation error") }=}
 if test == test2
 	print("true")
 ## Mixed case of regular lua comparators, and Callisto Script comparators
@@ -68,8 +68,8 @@ end
 
 let loop_test = 3
 repeat
-	print(loop_test--;)
-	let testtab = {loop_test--;}
+	print(loop_test-1)
+	let testtab = {loop_test+1}
 	loop_test--;
 	let bonus = loop_test
 until loop_test == 2
